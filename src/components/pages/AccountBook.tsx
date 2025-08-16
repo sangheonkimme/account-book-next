@@ -284,7 +284,7 @@ export default function AccountBook({
             </Title>
             <Box component="form" ref={formRef} action={handleAddTransaction}>
               <Grid align="flex-end">
-                <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
+                <Grid.Col span={{ base: 12, sm: 6, md: 2.5 }}>
                   <TextInput
                     name="date"
                     label="Date"
@@ -315,7 +315,7 @@ export default function AccountBook({
                     data={["expense", "income"]}
                   />
                 </Grid.Col>
-                <Grid.Col span={{ base: 12, md: 3 }}>
+                <Grid.Col span={{ base: 12, md: 2.5 }}>
                   <SubmitButton />
                 </Grid.Col>
               </Grid>
