@@ -1,240 +1,249 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
-import {
-  addTransaction,
-  deleteTransaction,
-  updateTransaction,
-} from "@/actions/transaction";
-import { Toaster, toast } from "react-hot-toast";
+import { useEffect, useRef, useState } from 'react';
+import { Toaster, toast } from 'react-hot-toast';
 import {
   Container,
   Title,
-  Box,
-  Grid,
   Paper,
-  TextInput,
-  Button,
-  Select,
-  Table,
-  Badge,
-  ActionIcon,
   Modal,
   Group,
-  NumberInput,
-  Card,
+  Button,
   Text,
-  rem,
-} from "@mantine/core";
-import { IconTrash } from "@tabler/icons-react";
-import { Transaction } from "@/types/interface/transaction";
+} from '@mantine/core';
+import { Transaction } from '@/types/interface/transaction';
+import { apiFetch } from '@/lib/api';
+import { SummaryCards } from './account-book/SummaryCards';
+import { TransactionForm } from './account-book/TransactionForm';
+import { TransactionTable } from './account-book/TransactionTable';
+import { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
+import { useAuthStore } from '@/store/auth';
 
 type AccountBookProps = {
   initialTransactions: Transaction[];
   session: boolean;
 };
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <Button
-      type="submit"
-      fullWidth
-      style={{ height: rem(42) }}
-      disabled={pending}
-      loading={pending}
-    >
-      Add
-    </Button>
-  );
-}
+const LOCAL_STORAGE_KEY = 'anonymous-transactions';
 
 export default function AccountBook({
   initialTransactions,
   session,
 }: AccountBookProps) {
   const formRef = useRef<HTMLFormElement>(null);
-  const [transactions, setTransactions] = useState(initialTransactions);
+  const editingRowRef = useRef<HTMLTableRowElement>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>(
+    initialTransactions
+  );
   const [opened, setOpened] = useState(false);
-  const [transactionIdToDelete, setTransactionIdToDelete] = useState<
-    number | null
-  >(null);
   const [editingTransactionId, setEditingTransactionId] = useState<
     number | null
   >(null);
-  const [newDescription, setNewDescription] = useState("");
+  const [deletingTransactionId, setDeletingTransactionId] = useState<
+    number | null
+  >(null);
+  const [newDescription, setNewDescription] = useState('');
+  const [newType, setNewType] = useState<Transaction['type'] | null>(null);
+  const [amount, setAmount] = useState<string | number>('');
+  const { isLoggedIn, isAuthInitialized } = useAuthStore();
 
   useEffect(() => {
-    setTransactions(initialTransactions);
-  }, [initialTransactions]);
+    if (isAuthInitialized && !isLoggedIn) {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      setTransactions(stored ? JSON.parse(stored) : []);
+    } else if (isAuthInitialized && isLoggedIn) {
+      setTransactions(initialTransactions);
+    }
+  }, [isLoggedIn, isAuthInitialized, initialTransactions]);
+
+  useEffect(() => {
+    if (isAuthInitialized && !isLoggedIn) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(transactions));
+    }
+  }, [transactions, isLoggedIn, isAuthInitialized]);
 
   const handleClickOpen = (id: number) => {
-    setTransactionIdToDelete(id);
+    setDeletingTransactionId(id);
     setOpened(true);
   };
 
   const handleClose = () => {
+    setDeletingTransactionId(null);
     setOpened(false);
-    setTransactionIdToDelete(null);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (transactionIdToDelete === null) return;
-
-    if (!session) {
-      setTransactions((prev) =>
-        prev.filter((t) => t.id !== transactionIdToDelete)
-      );
-      toast.success("Transaction deleted successfully.");
-      handleClose();
-      return;
-    }
-
-    const result = await deleteTransaction(transactionIdToDelete);
-    if (!result?.success) {
-      toast.error(result?.message || "An unknown error occurred.");
-      handleClose();
-      return;
-    }
-
-    toast.success(result.message);
-    handleClose();
-  };
-
+  // 등록
   const handleAddTransaction = async (formData: FormData) => {
-    if (!session) {
-      const newTransaction: Transaction = {
-        id: Date.now(),
-        date: formData.get("date") as string,
-        description: formData.get("description") as string,
-        amount: Number(formData.get("amount")),
-        type: formData.get("type") as "income" | "expense",
-      };
-      setTransactions((prev) => [newTransaction, ...prev]);
-      toast.success("Transaction added successfully.");
+    const description = formData.get('description') as string;
+    const newAmount = Number(amount);
+
+    if (!description.trim() || !newAmount) {
+      toast.error('Description and amount are required.');
+      return;
+    }
+
+    const newTransactionData = {
+      id: isLoggedIn ? 0 : Date.now(), // Use timestamp for local ID
+      date: formData.get('date') as string,
+      description,
+      amount: newAmount,
+      type: formData.get('type') as 'income' | 'expense' | 'saving',
+    };
+
+    if (isLoggedIn) {
+      try {
+        const result = await apiFetch('/account-book', {
+          method: 'POST',
+          body: newTransactionData,
+        });
+        setTransactions([result, ...transactions]);
+        toast.success('Transaction added successfully!');
+        formRef.current?.reset();
+        setAmount('');
+      } catch (error) {
+        toast.error('Failed to add transaction.');
+        console.error(error);
+      }
+    } else {
+      setTransactions([newTransactionData, ...transactions]);
+      toast.success('Transaction added successfully!');
       formRef.current?.reset();
-      return;
+      setAmount('');
     }
-
-    const result = await addTransaction(formData);
-    if (!result?.success) {
-      toast.error(result?.message || "An unknown error occurred.");
-      return;
-    }
-
-    toast.success(result.message);
-    formRef.current?.reset();
   };
 
+  // 수정
   const handleUpdateTransaction = async () => {
-    if (editingTransactionId === null) return;
+    if (!editingTransactionId || !newDescription || !newType) return;
 
-    if (!session) {
-      setTransactions((prev) =>
-        prev.map((t) =>
+    if (isLoggedIn) {
+      try {
+        const updatedTransaction = await apiFetch(
+          `/account-book/${editingTransactionId}`,
+          {
+            method: 'PATCH',
+            body: { description: newDescription, type: newType },
+          }
+        );
+        setTransactions(
+          transactions.map((t) =>
+            t.id === editingTransactionId ? updatedTransaction : t
+          )
+        );
+        toast.success('Transaction updated successfully!');
+      } catch (error) {
+        toast.error('Failed to update transaction.');
+        console.error(error);
+      }
+    } else {
+      setTransactions(
+        transactions.map((t) =>
           t.id === editingTransactionId
-            ? { ...t, description: newDescription }
+            ? { ...t, description: newDescription, type: newType }
             : t
         )
       );
-      toast.success("Transaction updated successfully.");
-      setEditingTransactionId(null);
-      setNewDescription("");
-      return;
+      toast.success('Transaction updated successfully!');
     }
 
-    const result = await updateTransaction(
-      editingTransactionId,
-      newDescription
-    );
-
-    if (!result?.success) {
-      toast.error(result?.message || "An unknown error occurred.");
-      setEditingTransactionId(null);
-      setNewDescription("");
-      return;
-    }
-
-    toast.success(result.message);
-    if (result.data && result.data.length > 0) {
-      setTransactions((prev) =>
-        prev.map((t) =>
-          t.id === editingTransactionId ? (result.data[0] as Transaction) : t
-        )
-      );
-    }
     setEditingTransactionId(null);
-    setNewDescription("");
+    setNewDescription('');
+    setNewType(null);
   };
 
-  const handleDescriptionClick = (id: number, description: string) => {
-    setEditingTransactionId(id);
-    setNewDescription(description);
+  // 삭제
+  const handleDeleteConfirm = async () => {
+    if (!deletingTransactionId) return;
+
+    if (isLoggedIn) {
+      try {
+        await apiFetch(`/account-book/${deletingTransactionId}`, {
+          method: 'DELETE',
+        });
+        setTransactions(
+          transactions.filter((t) => t.id !== deletingTransactionId)
+        );
+        toast.success('Transaction deleted successfully!');
+      } catch (error) {
+        toast.error('Failed to delete transaction.');
+        console.error(error);
+      }
+    } else {
+      setTransactions(
+        transactions.filter((t) => t.id !== deletingTransactionId)
+      );
+      toast.success('Transaction deleted successfully!');
+    }
+
+    handleClose();
   };
 
-  const handleDescriptionChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setNewDescription(event.currentTarget.value);
+  const handleEditClick = (transaction: Transaction) => {
+    setEditingTransactionId(transaction.id);
+    setNewDescription(transaction.description);
+    setNewType(transaction.type);
   };
 
-  const handleDescriptionKeyDown = (
+  const handleEditKeyDown = (
     event: React.KeyboardEvent<HTMLInputElement>
   ) => {
-    if (event.key === "Enter") {
+    if (event.key === 'Enter') {
       handleUpdateTransaction();
     }
-    if (event.key === "Escape") {
+    if (event.key === 'Escape') {
       setEditingTransactionId(null);
-      setNewDescription("");
+      setNewDescription('');
+      setNewType(null);
+    }
+  };
+
+  const handleReorder = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = transactions.findIndex((t) => t.id === active.id);
+      const newIndex = transactions.findIndex((t) => t.id === over.id);
+      const reorderedTransactions = arrayMove(
+        transactions,
+        oldIndex,
+        newIndex
+      );
+      setTransactions(reorderedTransactions);
+
+      if (isLoggedIn) {
+        try {
+          // TODO: Confirm the API endpoint and payload for reordering
+          await apiFetch('/api/account-book/reorder', {
+            method: 'PATCH',
+            body: {
+              orderedIds: reorderedTransactions.map((t) => t.id),
+            },
+          });
+          toast.success('Order updated successfully!');
+        } catch (error) {
+          toast.error('Failed to update order.');
+          // Revert to the original order on error
+          setTransactions(transactions);
+          console.error(error);
+        }
+      }
     }
   };
 
   const totalIncome = transactions
-    .filter((t) => t.type === "income")
+    .filter((t) => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0);
 
   const totalExpense = transactions
-    .filter((t) => t.type === "expense")
+    .filter((t) => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const balance = totalIncome - totalExpense;
+  const totalSaving = transactions
+    .filter((t) => t.type === 'saving')
+    .reduce((acc, t) => acc + t.amount, 0);
 
-  const rows = transactions.map((t) => (
-    <Table.Tr key={t.id}>
-      <Table.Td>{t.date}</Table.Td>
-      <Table.Td onClick={() => handleDescriptionClick(t.id, t.description)}>
-        {editingTransactionId === t.id ? (
-          <TextInput
-            value={newDescription}
-            onChange={handleDescriptionChange}
-            onKeyDown={handleDescriptionKeyDown}
-            autoFocus
-          />
-        ) : (
-          t.description
-        )}
-      </Table.Td>
-      <Table.Td align="right">
-        <Text c={t.type === "income" ? "teal" : "red"} fw={500}>
-          {t.type === "income" ? "+" : "-"}
-          {t.amount.toLocaleString()}원
-        </Text>
-      </Table.Td>
-      <Table.Td align="center">
-        <Badge color={t.type === "income" ? "teal" : "red"} variant="light">
-          {t.type}
-        </Badge>
-      </Table.Td>
-      <Table.Td align="center">
-        <ActionIcon color="red" onClick={() => handleClickOpen(t.id)}>
-          <IconTrash size={16} />
-        </ActionIcon>
-      </Table.Td>
-    </Table.Tr>
-  ));
+  const balance = totalIncome - totalExpense - totalSaving;
 
   return (
     <>
@@ -245,97 +254,33 @@ export default function AccountBook({
             가계부
           </Title>
 
-          <Grid gutter="xl">
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card withBorder radius="md" padding="xl">
-                <Text fz="lg" fw={500}>
-                  총 수입
-                </Text>
-                <Text c="teal" fz="xl" fw={700}>
-                  {totalIncome.toLocaleString()}원
-                </Text>
-              </Card>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card withBorder radius="md" padding="xl">
-                <Text fz="lg" fw={500}>
-                  총 지출
-                </Text>
-                <Text c="red" fz="xl" fw={700}>
-                  {totalExpense.toLocaleString()}원
-                </Text>
-              </Card>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card withBorder radius="md" padding="xl">
-                <Text fz="lg" fw={500}>
-                  잔액
-                </Text>
-                <Text fz="xl" fw={700}>
-                  {balance.toLocaleString()}원
-                </Text>
-              </Card>
-            </Grid.Col>
-          </Grid>
+          <SummaryCards
+            totalIncome={totalIncome}
+            totalExpense={totalExpense}
+            totalSaving={totalSaving}
+            balance={balance}
+          />
 
-          <Paper withBorder shadow="xs" p="xl" mt="xl" radius="md">
-            <Title order={3} mb="lg">
-              항목 추가
-            </Title>
-            <Box component="form" ref={formRef} action={handleAddTransaction}>
-              <Grid align="flex-end">
-                <Grid.Col span={{ base: 12, sm: 6, md: 2.5 }}>
-                  <TextInput
-                    name="date"
-                    label="Date"
-                    type="date"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                  <TextInput
-                    name="description"
-                    label="Description"
-                    placeholder="e.g. Lunch"
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
-                  <NumberInput
-                    name="amount"
-                    label="Amount"
-                    placeholder="e.g. 10000"
-                    thousandSeparator
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
-                  <Select
-                    name="type"
-                    label="Type"
-                    defaultValue="expense"
-                    data={["expense", "income"]}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, md: 2.5 }}>
-                  <SubmitButton />
-                </Grid.Col>
-              </Grid>
-            </Box>
-          </Paper>
+          <TransactionForm
+            formRef={formRef}
+            handleAddTransaction={handleAddTransaction}
+            amount={amount}
+            setAmount={setAmount}
+          />
 
-          <Paper withBorder shadow="xs" p="xl" mt="xl" radius="md">
-            <Table highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Date</Table.Th>
-                  <Table.Th>Description</Table.Th>
-                  <Table.Th ta="right">Amount</Table.Th>
-                  <Table.Th ta="center">Type</Table.Th>
-                  <Table.Th ta="center">Delete</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>{rows}</Table.Tbody>
-            </Table>
-          </Paper>
+          <TransactionTable
+            transactions={transactions}
+            editingTransactionId={editingTransactionId}
+            newDescription={newDescription}
+            newType={newType}
+            editingRowRef={editingRowRef}
+            handleEditClick={handleEditClick}
+            handleEditKeyDown={handleEditKeyDown}
+            setNewDescription={setNewDescription}
+            setNewType={setNewType}
+            handleClickOpen={handleClickOpen}
+            handleReorder={handleReorder}
+          />
         </Paper>
 
         <Modal opened={opened} onClose={handleClose} title="Confirm Deletion">

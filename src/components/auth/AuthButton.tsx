@@ -1,45 +1,35 @@
-"use client";
+'use client';
 
-import { Button } from "@mantine/core";
-import { createSupabaseBrowserClient } from "@/lib/client/supabase";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useAuthStore } from '@/store/auth';
+import { Button, Group, Loader } from '@mantine/core';
+import Link from 'next/link';
 
 export default function AuthButton() {
-  const [session, setSession] = useState(false);
-  const router = useRouter();
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const supabase = await createSupabaseBrowserClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session ? true : false);
-    };
-
-    checkSession();
-  }, []);
-
-  const handleLogin = async () => {
-    const supabase = await createSupabaseBrowserClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${location.origin}/auth/callback`,
-      },
-    });
-  };
+  const { isLoggedIn, isAuthInitialized } = useAuthStore();
+  const { logout } = useAuthStore((s) => s.actions);
 
   const handleLogout = async () => {
-    const supabase = await createSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    router.refresh();
+    await logout();
   };
 
-  return session ? (
-    <Button onClick={handleLogout}>로그아웃</Button>
-  ) : (
-    <Button onClick={handleLogin}>로그인</Button>
+  if (!isAuthInitialized) {
+    return <Loader size="sm" />;
+  }
+
+  return (
+    <Group>
+      {isLoggedIn ? (
+        <Button onClick={handleLogout}>로그아웃</Button>
+      ) : (
+        <>
+          <Link href="/login">
+            <Button variant="default">로그인</Button>
+          </Link>
+          <Link href="/signup">
+            <Button variant="default">회원가입</Button>
+          </Link>
+        </>
+      )}
+    </Group>
   );
 }

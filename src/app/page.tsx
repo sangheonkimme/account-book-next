@@ -1,25 +1,37 @@
-import { createSupabaseServerClient } from "@/lib/supabase";
 import AccountBook from "@/components/pages/AccountBook";
+import { cookies } from "next/headers";
 
 export default async function Home() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("accessToken");
 
   let transactions = [];
-  if (session) {
-    const { data } = await supabase
-      .from("transactions")
-      .select("*")
-      .order("date", { ascending: false });
-    transactions = data || [];
+  if (accessToken) {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+      const response = await fetch(`${baseUrl}/account-book`, {
+        headers: {
+          Authorization: `Bearer ${accessToken.value}`,
+        },
+        cache: "no-store",
+      });
+
+      console.log("response", response);
+
+      if (response.ok) {
+        transactions = await response.json();
+      } else {
+        // Handle non-ok responses if necessary
+        console.error("Failed to fetch transactions:", response.statusText);
+        transactions = [];
+      }
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      transactions = [];
+    }
   }
 
   return (
-    <AccountBook
-      initialTransactions={transactions}
-      session={session ? true : false}
-    />
+    <AccountBook initialTransactions={transactions} session={!!accessToken} />
   );
 }
