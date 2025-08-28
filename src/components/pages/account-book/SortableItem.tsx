@@ -57,7 +57,11 @@ const SortableItem = ({ t }: SortableItemProps) => {
     if (!isEditing) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (rowRef.current && !rowRef.current.contains(event.target as Node)) {
+      if (
+        rowRef.current &&
+        !rowRef.current.contains(event.target as Node) &&
+        !(event.target as Element).closest(".mantine-Select-dropdown")
+      ) {
         cancelEditing();
       }
     };
@@ -86,14 +90,16 @@ const SortableItem = ({ t }: SortableItemProps) => {
         <IconGripVertical style={{ cursor: "pointer" }} />
       </Table.Td>
       <Table.Td>{date}</Table.Td>
-      <Table.Td onClick={() => !isEditing && startEditing(t)}>
+      <Table.Td
+        onClick={() => !isEditing && startEditing(t)}
+        style={{ width: "40%" }}
+      >
         {isEditing ? (
           <TextInput
             value={newDescription}
             onChange={(event) => setNewDescription(event.currentTarget.value)}
             onKeyDown={handleEditKeyDown}
             autoFocus
-            onClick={(e) => e.stopPropagation()}
           />
         ) : (
           t.description
@@ -105,7 +111,11 @@ const SortableItem = ({ t }: SortableItemProps) => {
           {t.amount.toLocaleString()}원
         </Text>
       </Table.Td>
-      <Table.Td align="center" onClick={() => !isEditing && startEditing(t)}>
+      <Table.Td
+        align="center"
+        onClick={() => !isEditing && startEditing(t)}
+        style={{ width: "150px" }}
+      >
         {isEditing ? (
           <Select
             value={newType}
@@ -113,8 +123,7 @@ const SortableItem = ({ t }: SortableItemProps) => {
               setNewType(value as Transaction["type"]);
             }}
             data={["income", "expense", "saving"]}
-            // onKeyDown={handleEditKeyDown}
-            onClick={(e) => e.stopPropagation()}
+            onKeyDown={handleEditKeyDown}
           />
         ) : (
           <Badge color={color} variant="light">
