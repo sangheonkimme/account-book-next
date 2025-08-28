@@ -1,18 +1,23 @@
 import { Grid, Card, Text } from "@mantine/core";
+import { useTransactionStore } from "@/store/transactions";
 
-type SummaryCardsProps = {
-  totalIncome: number;
-  totalExpense: number;
-  totalSaving: number;
-  balance: number;
-};
+export function SummaryCards() {
+  const transactions = useTransactionStore((state) => state.transactions);
 
-export function SummaryCards({
-  totalIncome,
-  totalExpense,
-  totalSaving,
-  balance,
-}: SummaryCardsProps) {
+  const totalIncome = transactions
+    .filter((t) => t.type === "income")
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const totalExpense = transactions
+    .filter((t) => t.type === "expense")
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const totalSaving = transactions
+    .filter((t) => t.type === "saving")
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const balance = totalIncome - totalExpense - totalSaving;
+
   return (
     <Grid gutter="xl">
       <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>

@@ -10,13 +10,8 @@ import {
   Title,
 } from "@mantine/core";
 import { useFormStatus } from "react-dom";
-
-type TransactionFormProps = {
-  formRef: React.RefObject<HTMLFormElement | null>;
-  handleAddTransaction: (formData: FormData) => Promise<void>;
-  amount: string | number;
-  setAmount: (value: string | number) => void;
-};
+import { useTransactionStore } from "@/store/transactions";
+import { useRef } from "react";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -34,18 +29,21 @@ function SubmitButton() {
   );
 }
 
-export function TransactionForm({
-  formRef,
-  handleAddTransaction,
-  amount,
-  setAmount,
-}: TransactionFormProps) {
+export function TransactionForm() {
+  const { amount, setAmount, addTransaction } = useTransactionStore();
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleAction = async (formData: FormData) => {
+    await addTransaction(formData);
+    formRef.current?.reset();
+  };
+
   return (
     <Paper withBorder shadow="xs" p="xl" mt="xl" radius="md">
       <Title order={3} mb="lg">
         항목 추가
       </Title>
-      <Box component="form" ref={formRef} action={handleAddTransaction}>
+      <Box component="form" ref={formRef} action={handleAction}>
         <Grid align="flex-end">
           <Grid.Col span={{ base: 12, sm: 6, md: 2.5 }}>
             <TextInput
