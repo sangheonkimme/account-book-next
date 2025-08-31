@@ -44,7 +44,7 @@ export function TransactionTable() {
                 <Table.Th w={34}></Table.Th>
                 <Table.Th w={120}>Date</Table.Th>
                 <Table.Th>Description</Table.Th>
-                <Table.Th w={120} ta="right">
+                <Table.Th w={130} ta="right">
                   Amount
                 </Table.Th>
                 <Table.Th ta="center">Type</Table.Th>

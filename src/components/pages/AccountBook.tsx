@@ -45,11 +45,13 @@ export default function AccountBook({
   }, [errorStatus]);
 
   useEffect(() => {
-    if (isAuthInitialized && !isLoggedIn) {
+    if (!isAuthInitialized) return;
+
+    if (isLoggedIn) {
+      setTransactions(initialTransactions);
+    } else if (!isLoggedIn) {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
       setTransactions(stored ? JSON.parse(stored) : []);
-    } else if (isAuthInitialized && isLoggedIn) {
-      setTransactions(initialTransactions);
     }
   }, [isLoggedIn, isAuthInitialized, initialTransactions, setTransactions]);
 
