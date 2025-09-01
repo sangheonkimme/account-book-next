@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { ColorSchemeScript, mantineHtmlProps } from "@mantine/core";
+import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
 import Layout from "@/components/layout/Layout";
 import "./globals.css";
 import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
+
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 export const metadata: Metadata = {
   title: "나의 사랑스런 가계부",

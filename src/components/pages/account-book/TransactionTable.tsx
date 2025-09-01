@@ -1,64 +1,140 @@
 "use client";
 
-import { Table, Paper } from "@mantine/core";
+import { useState, useCallback } from "react";
+import { AgGridReact } from "ag-grid-react";
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import SortableItem from "./SortableItem";
+  ColDef,
+  RowDragEndEvent,
+  ICellRendererParams,
+  ModuleRegistry,
+  AllCommunityModule,
+} from "ag-grid-community";
 import { useTransactionStore } from "@/store/transactions";
+import { Transaction } from "@/types/interface/transaction";
+import { Button, Badge } from "@mantine/core";
+import { IconTrash } from "@tabler/icons-react";
+import { getTypeColor } from "@/lib/colorUtils";
 
-export function TransactionTable() {
-  const { transactions, handleReorder } = useTransactionStore();
+ModuleRegistry.registerModules([AllCommunityModule]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+// Custom cell renderer for the delete button
+const DeleteCellRenderer = (props: ICellRendererParams<Transaction>) => {
+  const { openDeleteModal } = useTransactionStore();
+  const handleDelete = () => {
+    if (props.data) openDeleteModal(props.data.id);
+  };
+
+  return (
+    <Button variant="subtle" color="red" size="xs" onClick={handleDelete}>
+      <IconTrash size={16} />
+    </Button>
+  );
+};
+
+const TypeCellRenderer = (props: ICellRendererParams<Transaction>) => {
+  if (!props.value) {
+    return null;
+  }
+
+  return (
+    <Badge color={getTypeColor(props.value)} variant="light">
+      {props.value}
+    </Badge>
+  );
+};
+
+interface TransactionTableProps {
+  transactions: Transaction[];
+}
+
+export function TransactionTable({ transactions }: TransactionTableProps) {
+  const { transactions: allTransactions, setTransactionsAndUpdateOrder } =
+    useTransactionStore();
+
+  const [colDefs] = useState<ColDef<Transaction>[]>([
+    { rowDrag: true, width: 30, cellClass: "cursor-grab" },
+    { field: "date", width: 120, headerName: "Date" },
+    {
+      field: "description",
+      headerName: "Description",
+      flex: 1,
+      editable: true,
+    },
+    {
+      field: "amount",
+      width: 110,
+      headerName: "Amount",
+      cellStyle: (params) => ({
+        textAlign: "right",
+        color: getTypeColor(params.data?.type),
+      }),
+      valueFormatter: (params) => params.value.toLocaleString(),
+      editable: true,
+    },
+    {
+      field: "type",
+      width: 110,
+      headerName: "Type",
+      cellRenderer: TypeCellRenderer,
+      editable: true,
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: {
+        values: ["income", "expense", "saving"],
+      },
+    },
+    {
+      headerName: "Delete",
+      width: 90,
+      cellRenderer: DeleteCellRenderer,
+      cellStyle: { textAlign: "center" },
+    },
+  ]);
+
+  const onRowDragEnd = useCallback(
+    (event: RowDragEndEvent<Transaction>) => {
+      const reorderedNodes = event.api
+        .getRenderedNodes()
+        .map((node) => node.data as Transaction);
+
+      if (!reorderedNodes || reorderedNodes.length === 0) return;
+
+      const currentClassification = reorderedNodes[0].classification;
+
+      const unchangedGroup = allTransactions.filter(
+        (t) => t.classification !== currentClassification
+      );
+
+      const newFullList = [...unchangedGroup, ...reorderedNodes];
+
+      setTransactionsAndUpdateOrder(newFullList);
+    },
+    [allTransactions, setTransactionsAndUpdateOrder]
+  );
+
+  const onCellValueChanged = useCallback(
+    (event: any) => {
+      const updatedTransaction = event.data;
+      const newTransactions = allTransactions.map((t) => {
+        if (t.id === updatedTransaction.id) {
+          return updatedTransaction;
+        }
+        return t;
+      });
+      setTransactionsAndUpdateOrder(newTransactions);
+    },
+    [allTransactions, setTransactionsAndUpdateOrder]
   );
 
   return (
-    <Paper withBorder shadow="xs" p="xl" mt="xl" radius="md">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleReorder}
-      >
-        <SortableContext
-          items={transactions.map((t) => t.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <Table highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th w={34}></Table.Th>
-                <Table.Th w={120}>Date</Table.Th>
-                <Table.Th>Description</Table.Th>
-                <Table.Th w={130} ta="right">
-                  Amount
-                </Table.Th>
-                <Table.Th ta="center">Type</Table.Th>
-                <Table.Th ta="center">Delete</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {transactions.map((t) => (
-                <SortableItem key={t.id} t={t} />
-              ))}
-            </Table.Tbody>
-          </Table>
-        </SortableContext>
-      </DndContext>
-    </Paper>
+    <div className="ag-theme-quartz h-[600px]">
+      <AgGridReact
+        rowData={transactions}
+        columnDefs={colDefs}
+        rowDragManaged={true}
+        animateRows={true}
+        onRowDragEnd={onRowDragEnd}
+        onCellValueChanged={onCellValueChanged}
+      />
+    </div>
   );
 }

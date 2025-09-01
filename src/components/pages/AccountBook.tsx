@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import {
   Container,
@@ -10,7 +10,20 @@ import {
   Group,
   Button,
   Text,
+  Grid,
+  Chip,
+  Stack,
+  Box,
+  Flex,
 } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
+import {
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  parseISO,
+  isWithinInterval,
+} from "date-fns";
 import { Transaction } from "@/types/interface/transaction";
 import { SummaryCards } from "./account-book/SummaryCards";
 import { TransactionForm } from "./account-book/TransactionForm";
@@ -37,12 +50,19 @@ export default function AccountBook({
     deleteTransaction,
   } = useTransactionStore();
   const { isLoggedIn, isAuthInitialized } = useAuthStore();
+  const { logout } = useAuthStore((s) => s.actions);
+
+  const [dateRange, setDateRange] = useState<any>([
+    startOfMonth(new Date()),
+    endOfMonth(new Date()),
+  ]);
 
   useEffect(() => {
     if (errorStatus === 401) {
       toast.error("세션이 만료되었습니다. 다시 로그인해주세요.");
+      logout();
     }
-  }, [errorStatus]);
+  }, [errorStatus, logout]);
 
   useEffect(() => {
     if (!isAuthInitialized) return;
@@ -61,10 +81,76 @@ export default function AccountBook({
     }
   }, [transactions, isLoggedIn, isAuthInitialized]);
 
+  const filteredTransactions = useMemo(() => {
+    const [start, end] = dateRange;
+    console.log("start", start);
+    console.log("end", end);
+
+    if (!start || !end) return transactions;
+
+    return transactions.filter((t) => {
+      const transactionDate = parseISO(t.date);
+      return isWithinInterval(transactionDate, { start, end });
+    });
+  }, [transactions, dateRange]);
+
+  const fixedTransactions = useMemo(
+    () => filteredTransactions.filter((t) => t.classification === "fixed"),
+    [filteredTransactions]
+  );
+
+  const variableTransactions = useMemo(
+    () => filteredTransactions.filter((t) => t.classification === "variable"),
+    [filteredTransactions]
+  );
+
+  const [selectedMonth, setSelectedMonth] = useState<string | string[]>("");
+
+  const months = useMemo(
+    () => Array.from({ length: 12 }, (_, i) => `${i + 1}월`),
+    []
+  );
+
+  const handleMonthChange = (month: string | string[]) => {
+    setSelectedMonth(month);
+    if (month) {
+      const monthIndex = parseInt(month as string, 10) - 1;
+      const year = new Date().getFullYear();
+      const start = startOfMonth(new Date(year, monthIndex));
+      const end = endOfMonth(new Date(year, monthIndex));
+      setDateRange([start, end]);
+    }
+  };
+
+  useEffect(() => {
+    const [start, end] = dateRange;
+    if (start && end) {
+      const startMonth = start.getMonth();
+      const endMonth = end.getMonth();
+      const startDay = start.getDate();
+      const endOfStartMonth = endOfMonth(start);
+
+      if (
+        startMonth === endMonth &&
+        startDay === 1 &&
+        end.getTime() === endOfStartMonth.getTime()
+      ) {
+        setSelectedMonth(`${startMonth + 1}월`);
+      } else {
+        setSelectedMonth("");
+      }
+    }
+  }, [dateRange]);
+
+  console.log("transactions", transactions);
+  console.log("filteredTransactions", filteredTransactions);
+  console.log("fixedTransactions", fixedTransactions);
+  console.log("variableTransactions", variableTransactions);
+
   return (
     <>
       <Toaster position="top-center" />
-      <Container size="lg">
+      <Container fluid>
         <Paper withBorder shadow="md" p={30} mt={30} radius="md">
           <Title order={2} ta="center" mb="xl">
             가계부
@@ -72,8 +158,50 @@ export default function AccountBook({
 
           <SummaryCards />
           <TransactionForm />
-          <TransactionTable />
         </Paper>
+
+        <Stack mt="xl">
+          <Group>
+            <DatePickerInput
+              type="range"
+              label="기간 선택"
+              placeholder="날짜 범위를 선택하세요"
+              valueFormat="YYYY-MM-DD"
+              value={dateRange}
+              onChange={setDateRange}
+              maw={320}
+            />
+
+            <Chip.Group value={selectedMonth} onChange={handleMonthChange}>
+              <Group mt="md">
+                {months.map((month) => (
+                  <Chip key={month} value={month}>
+                    {month}
+                  </Chip>
+                ))}
+              </Group>
+            </Chip.Group>
+          </Group>
+        </Stack>
+
+        <Grid mt="xl">
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Box>
+              <Title order={4} mb="md">
+                고정 지출/수입
+              </Title>
+              <TransactionTable transactions={fixedTransactions} />
+            </Box>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Box>
+              <Title order={4} mb="md">
+                변동 지출/수입
+              </Title>
+              <TransactionTable transactions={variableTransactions} />
+            </Box>
+          </Grid.Col>
+        </Grid>
 
         <Modal
           opened={isModalOpen}

@@ -46,7 +46,7 @@ const Layout = ({
 
         <AppShell.Main>
           {/* Children */}
-          <Container>{children}</Container>
+          <Container fluid>{children}</Container>
         </AppShell.Main>
       </AppShell>
     </MantineProvider>

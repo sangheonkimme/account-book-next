@@ -12,10 +12,6 @@ export default function AuthButton() {
     await logout();
   };
 
-  if (!isAuthInitialized) {
-    return <Loader size="sm" />;
-  }
-
   return (
     <Group>
       {isLoggedIn ? (

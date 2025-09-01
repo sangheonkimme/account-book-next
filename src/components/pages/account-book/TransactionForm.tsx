@@ -8,6 +8,8 @@ import {
   rem,
   Paper,
   Title,
+  SegmentedControl,
+  Input,
 } from "@mantine/core";
 import { useFormStatus } from "react-dom";
 import { useTransactionStore } from "@/store/transactions";
@@ -45,7 +47,7 @@ export function TransactionForm() {
       </Title>
       <Box component="form" ref={formRef} action={handleAction}>
         <Grid align="flex-end">
-          <Grid.Col span={{ base: 12, sm: 6, md: 2.5 }}>
+          <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
             <TextInput
               name="date"
               label="Date"
@@ -53,7 +55,20 @@ export function TransactionForm() {
               defaultValue={new Date().toISOString().slice(0, 10)}
             />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+          <Grid.Col span={{ base: 12, sm: 6, md: 2.5 }}>
+            <Input.Wrapper label="Classification">
+              <SegmentedControl
+                name="classification"
+                data={[
+                  { label: "고정", value: "fixed" },
+                  { label: "변동", value: "variable" },
+                ]}
+                defaultValue="variable"
+                fullWidth
+              />
+            </Input.Wrapper>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 6, md: 2.5 }}>
             <TextInput
               name="description"
               label="Description"
@@ -70,7 +85,7 @@ export function TransactionForm() {
               onChange={setAmount}
             />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
+          <Grid.Col span={{ base: 12, sm: 6, md: 1.5 }}>
             <Select
               name="type"
               label="Type"
@@ -78,7 +93,7 @@ export function TransactionForm() {
               data={["expense", "income", "saving"]}
             />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 2.5 }}>
+          <Grid.Col span={{ base: 12, md: 1.5 }}>
             <SubmitButton />
           </Grid.Col>
         </Grid>

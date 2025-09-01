@@ -2,8 +2,6 @@ import { create } from "zustand";
 import { Transaction } from "@/types/interface/transaction";
 import { apiFetch } from "@/lib/api";
 import { toast } from "react-hot-toast";
-import { DragEndEvent } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
 
 interface TransactionState {
   transactions: Transaction[];
@@ -12,6 +10,7 @@ interface TransactionState {
   isModalOpen: boolean;
   newDescription: string;
   newType: Transaction["type"] | null;
+  newClassification: Transaction["classification"] | null;
   amount: string | number;
   setTransactions: (transactions: Transaction[]) => void;
   setAmount: (amount: string | number) => void;
@@ -22,9 +21,12 @@ interface TransactionState {
   openDeleteModal: (id: number) => void;
   closeDeleteModal: () => void;
   deleteTransaction: () => Promise<void>;
-  handleReorder: (event: DragEndEvent) => Promise<void>;
+  setTransactionsAndUpdateOrder: (transactions: Transaction[]) => Promise<void>;
   setNewDescription: (description: string) => void;
   setNewType: (type: Transaction["type"] | null) => void;
+  setNewClassification: (
+    classification: Transaction["classification"] | null
+  ) => void;
 }
 
 export const useTransactionStore = create<TransactionState>((set, get) => ({
@@ -34,6 +36,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   isModalOpen: false,
   newDescription: "",
   newType: null,
+  newClassification: null,
   amount: "",
   setTransactions: (transactions) => set({ transactions }),
   setAmount: (amount) => set({ amount }),
@@ -53,6 +56,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       description,
       amount: newAmount,
       type: formData.get("type") as Transaction["type"],
+      classification:
+        formData.get("classification") as Transaction["classification"],
     };
 
     try {
@@ -72,22 +77,38 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       editingTransactionId: transaction.id,
       newDescription: transaction.description,
       newType: transaction.type,
+      newClassification: transaction.classification,
     });
   },
   cancelEditing: () => {
-    set({ editingTransactionId: null, newDescription: "", newType: null });
+    set({
+      editingTransactionId: null,
+      newDescription: "",
+      newType: null,
+      newClassification: null,
+    });
   },
   updateTransaction: async () => {
-    const { transactions, editingTransactionId, newDescription, newType } =
-      get();
-    if (!editingTransactionId || !newDescription || !newType) return;
+    const {
+      transactions,
+      editingTransactionId,
+      newDescription,
+      newType,
+      newClassification,
+    } = get();
+    if (!editingTransactionId || !newDescription || !newType || !newClassification)
+      return;
 
     try {
       const updatedTransaction = await apiFetch(
         `/account-book/${editingTransactionId}`,
         {
           method: "PATCH",
-          body: { description: newDescription, type: newType },
+          body: {
+            description: newDescription,
+            type: newType,
+            classification: newClassification,
+          },
         }
       );
       set({
@@ -97,6 +118,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         editingTransactionId: null,
         newDescription: "",
         newType: null,
+        newClassification: null,
       });
       toast.success("Transaction updated successfully!");
     } catch (error) {
@@ -129,31 +151,26 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
       console.error(error);
     }
   },
-  handleReorder: async (event: DragEndEvent) => {
-    const { active, over } = event;
-    const { transactions } = get();
+  setTransactionsAndUpdateOrder: async (reorderedTransactions: Transaction[]) => {
+    const { transactions } = get(); // Get original transactions for revert
+    set({ transactions: reorderedTransactions }); // Optimistic update
 
-    if (over && active.id !== over.id) {
-      const oldIndex = transactions.findIndex((t) => t.id === active.id);
-      const newIndex = transactions.findIndex((t) => t.id === over.id);
-      const reorderedTransactions = arrayMove(transactions, oldIndex, newIndex);
-      set({ transactions: reorderedTransactions });
-
-      try {
-        await apiFetch("/account-book/reorder", {
-          method: "PATCH",
-          body: {
-            orderedIds: reorderedTransactions.map((t) => t.id),
-          },
-        });
-        toast.success("Order updated successfully!");
-      } catch (error) {
-        toast.error("Failed to update order.");
-        set({ transactions }); // Revert on error
-        console.error(error);
-      }
+    try {
+      await apiFetch("/account-book/reorder", {
+        method: "PATCH",
+        body: {
+          orderedIds: reorderedTransactions.map((t) => t.id),
+        },
+      });
+      toast.success("Order updated successfully!");
+    } catch (error) {
+      toast.error("Failed to update order.");
+      set({ transactions }); // Revert on error
+      console.error(error);
     }
   },
   setNewDescription: (description) => set({ newDescription: description }),
   setNewType: (type) => set({ newType: type }),
+  setNewClassification: (classification) =>
+    set({ newClassification: classification }),
 }));
