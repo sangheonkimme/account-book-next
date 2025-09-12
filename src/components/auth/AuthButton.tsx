@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useAuthStore } from '@/store/auth';
-import { Button, Group, Loader } from '@mantine/core';
-import Link from 'next/link';
+import { useAuthStore } from "@/store/auth";
+import { Button, Group, Loader } from "@mantine/core";
+import Link from "next/link";
 
 export default function AuthButton() {
   const { isLoggedIn, isAuthInitialized } = useAuthStore();
