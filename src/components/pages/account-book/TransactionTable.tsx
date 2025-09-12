@@ -8,6 +8,7 @@ import {
   ICellRendererParams,
   ModuleRegistry,
   AllCommunityModule,
+  CellValueChangedEvent,
 } from "ag-grid-community";
 import { useTransactionStore } from "@/store/transactions";
 import { Transaction } from "@/types/interface/transaction";
@@ -112,8 +113,8 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
   );
 
   const onCellValueChanged = useCallback(
-    (event: any) => {
-      const updatedTransaction = event.data;
+    (event: CellValueChangedEvent) => {
+      const updatedTransaction = event.data as Transaction;
       const newTransactions = allTransactions.map((t) => {
         if (t.id === updatedTransaction.id) {
           return updatedTransaction;
