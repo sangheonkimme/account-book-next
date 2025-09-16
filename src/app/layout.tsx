@@ -9,13 +9,13 @@ import "@mantine/dates/styles.css";
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 export const metadata: Metadata = {
-  title: "나의 사랑스런 가계부",
+  title: "나의 가계부",
   description: "수입과 지출을 기록합니다.",
   openGraph: {
-    title: "나의 사랑스런 가계부",
+    title: "나의 가계부",
     description: "수입과 지출을 기록합니다.",
     url: "https://account-book-next.vercel.app/",
-    siteName: "나의 사랑스런 가계부",
+    siteName: "나의 가계부",
     images: [
       {
         url: "/images/og-image.png",
