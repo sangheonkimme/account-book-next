@@ -14,6 +14,7 @@ import {
   Chip,
   Stack,
   Box,
+  LoadingOverlay,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval } from "date-fns";
@@ -41,6 +42,7 @@ export default function AccountBook({
     isModalOpen,
     closeDeleteModal,
     deleteTransaction,
+    isLoading,
   } = useTransactionStore();
   const { isLoggedIn, isAuthInitialized } = useAuthStore();
   const { logout } = useAuthStore((s) => s.actions);
@@ -142,6 +144,7 @@ export default function AccountBook({
 
   return (
     <>
+      <LoadingOverlay visible={isLoading} />
       <Toaster position="top-center" />
       <Container fluid>
         <Paper withBorder shadow="md" p={30} mt={30} radius="md">
@@ -199,18 +202,17 @@ export default function AccountBook({
         <Modal
           opened={isModalOpen}
           onClose={closeDeleteModal}
-          title="Confirm Deletion"
+          title="삭제 확인"
         >
           <Text>
-            Are you sure you want to delete this transaction? This action cannot
-            be undone.
+            정말로 이 거래 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
           </Text>
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={closeDeleteModal}>
-              Cancel
+              취소
             </Button>
             <Button color="red" onClick={deleteTransaction}>
-              Delete
+              삭제
             </Button>
           </Group>
         </Modal>

@@ -1,4 +1,5 @@
 import { getCookie } from "cookies-next";
+import { Transaction } from "@/types/interface/transaction";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
@@ -56,3 +57,19 @@ export async function apiFetch<T = any>(
     throw error;
   }
 }
+
+export const updateAccountBook = async (
+  id: number,
+  data: Partial<Transaction>
+) => {
+  return apiFetch(`/account-book/${id}`, {
+    method: "PATCH",
+    body: data,
+  });
+};
+
+export const deleteAccountBook = async (id: number) => {
+  return apiFetch(`/account-book/${id}`, {
+    method: "DELETE",
+  });
+};

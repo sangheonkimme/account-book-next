@@ -49,8 +49,11 @@ interface TransactionTableProps {
 }
 
 export function TransactionTable({ transactions }: TransactionTableProps) {
-  const { transactions: allTransactions, setTransactionsAndUpdateOrder } =
-    useTransactionStore();
+  const {
+    transactions: allTransactions,
+    setTransactionsAndUpdateOrder,
+    updateTransactionField,
+  } = useTransactionStore();
 
   const [colDefs] = useState<ColDef<Transaction>[]>([
     { rowDrag: true, width: 30, cellClass: "cursor-grab" },
@@ -113,17 +116,21 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
   );
 
   const onCellValueChanged = useCallback(
-    (event: CellValueChangedEvent) => {
-      const updatedTransaction = event.data as Transaction;
-      const newTransactions = allTransactions.map((t) => {
-        if (t.id === updatedTransaction.id) {
-          return updatedTransaction;
-        }
-        return t;
-      });
-      setTransactionsAndUpdateOrder(newTransactions);
+    async (event: CellValueChangedEvent) => {
+      const field = event.column.getColId();
+      const newValue = event.newValue;
+      const transactionId = event.data.id;
+
+      const dataToUpdate = { [field]: newValue };
+
+      try {
+        await updateTransactionField(transactionId, dataToUpdate);
+      } catch (error) {
+        // Revert on error
+        event.node.setDataValue(field, event.oldValue);
+      }
     },
-    [allTransactions, setTransactionsAndUpdateOrder]
+    [updateTransactionField]
   );
 
   return (
