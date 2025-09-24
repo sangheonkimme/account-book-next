@@ -26,7 +26,7 @@ function SubmitButton() {
       disabled={pending}
       loading={pending}
     >
-      Add
+      추가
     </Button>
   );
 }
@@ -50,13 +50,13 @@ export function TransactionForm() {
           <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
             <TextInput
               name="date"
-              label="Date"
+              label="날짜"
               type="date"
               defaultValue={new Date().toISOString().slice(0, 10)}
             />
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 2.5 }}>
-            <Input.Wrapper label="Classification">
+            <Input.Wrapper label="구분">
               <SegmentedControl
                 name="classification"
                 data={[
@@ -71,16 +71,18 @@ export function TransactionForm() {
           <Grid.Col span={{ base: 12, sm: 6, md: 2.5 }}>
             <TextInput
               name="description"
-              label="Description"
-              placeholder="e.g. Lunch"
+              label="내용"
+              placeholder="예: 점심 식사"
             />
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 2 }}>
             <NumberInput
               name="amount"
-              label="Amount"
-              placeholder="e.g. 10000"
+              label="금액"
+              placeholder="예: 10000"
               thousandSeparator
+              min={0}
+              step={100}
               value={amount}
               onChange={setAmount}
             />
@@ -88,9 +90,13 @@ export function TransactionForm() {
           <Grid.Col span={{ base: 12, sm: 6, md: 1.5 }}>
             <Select
               name="type"
-              label="Type"
+              label="유형"
               defaultValue="expense"
-              data={["expense", "income", "saving"]}
+              data={[
+                { value: "expense", label: "지출" },
+                { value: "income", label: "수입" },
+                { value: "saving", label: "저축" },
+              ]}
             />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 1.5 }}>
