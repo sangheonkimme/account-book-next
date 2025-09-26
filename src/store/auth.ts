@@ -40,15 +40,6 @@ export const useAuthStore = create<State & Actions>((set) => ({
         const token = getCookie('accessToken');
         if (token) {
           set({ isLoggedIn: true });
-          return;
-        }
-
-        const refreshToken = getCookie('refreshToken');
-        if (refreshToken) {
-          const data = await apiFetch('/api/auth/refresh', { method: 'POST' });
-          if (data && data.accessToken) {
-            useAuthStore.getState().actions.login(data.accessToken);
-          }
         }
       } catch (err) {
         // It's okay if this fails

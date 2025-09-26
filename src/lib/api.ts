@@ -8,7 +8,7 @@ const refreshAuthToken = async () => {
   try {
     // The backend's /refresh endpoint is expected to handle the refreshToken cookie
     // and issue a new accessToken cookie.
-    const res = await fetch(baseUrl + "/refresh", {
+    const res = await fetch(baseUrl + "/auth/refresh", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
