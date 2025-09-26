@@ -15,9 +15,10 @@ import {
   Stack,
   Box,
   LoadingOverlay,
+  Select,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
-import { startOfMonth, endOfMonth, parseISO, isWithinInterval } from "date-fns";
+import { parseISO, isWithinInterval } from "date-fns";
 import { Transaction } from "@/types/interface/transaction";
 import { SummaryCards } from "./account-book/SummaryCards";
 import { TransactionForm } from "./account-book/TransactionForm";
@@ -47,10 +48,38 @@ export default function AccountBook({
   const { isLoggedIn, isAuthInitialized } = useAuthStore();
   const { logout } = useAuthStore((s) => s.actions);
 
-  const [dateRange, setDateRange] = useState<any>([
-    startOfMonth(new Date()),
-    endOfMonth(new Date()),
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
+    null,
+    null,
   ]);
+  const [payday, setPayday] = useState<string | null>("25");
+  const [selectedMonth, setSelectedMonth] = useState<string | string[]>("");
+
+  useEffect(() => {
+    if (payday) {
+      const today = new Date();
+      const currentDay = today.getDate();
+      const currentMonth = today.getMonth(); // 0-indexed
+      const paydayNumber = parseInt(payday, 10);
+
+      let initialMonth = currentMonth + 1; // 1-indexed
+
+      if (currentDay >= paydayNumber) {
+        initialMonth = currentMonth + 2;
+      }
+
+      if (initialMonth > 12) {
+        initialMonth = 1;
+      }
+
+      setSelectedMonth(`${initialMonth}월`);
+    }
+  }, []);
+
+  const paydayOptions = Array.from({ length: 31 }, (_, i) => ({
+    value: `${i + 1}`,
+    label: `${i + 1}일`,
+  }));
 
   useEffect(() => {
     if (errorStatus === 401) {
@@ -76,11 +105,35 @@ export default function AccountBook({
     }
   }, [transactions, isLoggedIn, isAuthInitialized]);
 
+  useEffect(() => {
+    if (selectedMonth && payday) {
+      const monthIndex = parseInt(selectedMonth as string, 10) - 1;
+      const year = new Date().getFullYear();
+      const paydayNumber = parseInt(payday, 10);
+
+      const startDate = new Date(year, monthIndex - 1, paydayNumber);
+      startDate.setHours(0, 0, 0, 0);
+
+      const endDate = new Date(year, monthIndex, paydayNumber - 1);
+      endDate.setHours(23, 59, 59, 999);
+
+      setDateRange([startDate, endDate]);
+    }
+  }, [selectedMonth, payday]);
+
+  const handleDateChange = (newRange: [Date | null, Date | null]) => {
+    if (newRange[0] && newRange[1]) {
+      setSelectedMonth(""); // Deselect month chip
+    }
+    setDateRange(newRange);
+  };
+
+  const handleMonthChange = (month: string | string[]) => {
+    setSelectedMonth(month);
+  };
+
   const filteredTransactions = useMemo(() => {
     const [start, end] = dateRange;
-    console.log("start", start);
-    console.log("end", end);
-
     if (!start || !end) return transactions;
 
     return transactions.filter((t) => {
@@ -99,48 +152,10 @@ export default function AccountBook({
     [filteredTransactions]
   );
 
-  const [selectedMonth, setSelectedMonth] = useState<string | string[]>("");
-
   const months = useMemo(
     () => Array.from({ length: 12 }, (_, i) => `${i + 1}월`),
     []
   );
-
-  const handleMonthChange = (month: string | string[]) => {
-    setSelectedMonth(month);
-    if (month) {
-      const monthIndex = parseInt(month as string, 10) - 1;
-      const year = new Date().getFullYear();
-      const start = startOfMonth(new Date(year, monthIndex));
-      const end = endOfMonth(new Date(year, monthIndex));
-      setDateRange([start, end]);
-    }
-  };
-
-  useEffect(() => {
-    const [start, end] = dateRange;
-    if (start && end) {
-      const startMonth = start.getMonth();
-      const endMonth = end.getMonth();
-      const startDay = start.getDate();
-      const endOfStartMonth = endOfMonth(start);
-
-      if (
-        startMonth === endMonth &&
-        startDay === 1 &&
-        end.getTime() === endOfStartMonth.getTime()
-      ) {
-        setSelectedMonth(`${startMonth + 1}월`);
-      } else {
-        setSelectedMonth("");
-      }
-    }
-  }, [dateRange]);
-
-  console.log("transactions", transactions);
-  console.log("filteredTransactions", filteredTransactions);
-  console.log("fixedTransactions", fixedTransactions);
-  console.log("variableTransactions", variableTransactions);
 
   return (
     <>
@@ -158,26 +173,35 @@ export default function AccountBook({
 
         <Stack mt="xl">
           <Group>
+            <Select
+              label="급여일 설정"
+              value={payday}
+              onChange={setPayday}
+              data={paydayOptions}
+              maw={120}
+            />
             <DatePickerInput
               type="range"
-              label="기간 선택"
+              label="기간 직접 선택"
               placeholder="날짜 범위를 선택하세요"
               valueFormat="YYYY-MM-DD"
               value={dateRange}
-              onChange={setDateRange}
+              onChange={handleDateChange}
               maw={320}
             />
-
-            <Chip.Group value={selectedMonth} onChange={handleMonthChange}>
-              <Group mt="md">
-                {months.map((month) => (
-                  <Chip key={month} value={month}>
-                    {month}
-                  </Chip>
-                ))}
-              </Group>
-            </Chip.Group>
           </Group>
+          <Chip.Group value={selectedMonth} onChange={handleMonthChange}>
+            <Group mt="sm">
+              <Text size="sm" fw={500}>
+                월 선택:
+              </Text>
+              {months.map((month) => (
+                <Chip key={month} value={month}>
+                  {month}
+                </Chip>
+              ))}
+            </Group>
+          </Chip.Group>
         </Stack>
 
         <Grid mt="xl">
