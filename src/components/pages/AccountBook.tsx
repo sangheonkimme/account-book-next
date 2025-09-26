@@ -17,8 +17,8 @@ import {
   LoadingOverlay,
   Select,
 } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
-import { parseISO, isWithinInterval } from "date-fns";
+import { DatePickerInput, DatesRangeValue } from "@mantine/dates";
+import { parseISO, isWithinInterval, format } from "date-fns";
 import { Transaction } from "@/types/interface/transaction";
 import { SummaryCards } from "./account-book/SummaryCards";
 import { TransactionForm } from "./account-book/TransactionForm";
@@ -48,7 +48,7 @@ export default function AccountBook({
   const { isLoggedIn, isAuthInitialized } = useAuthStore();
   const { logout } = useAuthStore((s) => s.actions);
 
-  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
+  const [dateRange, setDateRange] = useState<DatesRangeValue<string>>([
     null,
     null,
   ]);
@@ -117,11 +117,14 @@ export default function AccountBook({
       const endDate = new Date(year, monthIndex, paydayNumber - 1);
       endDate.setHours(23, 59, 59, 999);
 
-      setDateRange([startDate, endDate]);
+      setDateRange([
+        format(startDate, "yyyy-MM-dd"),
+        format(endDate, "yyyy-MM-dd"),
+      ]);
     }
   }, [selectedMonth, payday]);
 
-  const handleDateChange = (newRange: [Date | null, Date | null]) => {
+  const handleDateChange = (newRange: DatesRangeValue<string>) => {
     if (newRange[0] && newRange[1]) {
       setSelectedMonth(""); // Deselect month chip
     }
@@ -229,7 +232,8 @@ export default function AccountBook({
           title="삭제 확인"
         >
           <Text>
-            정말로 이 거래 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            정말로 이 거래 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수
+            없습니다.
           </Text>
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={closeDeleteModal}>
